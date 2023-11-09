@@ -53,6 +53,9 @@ df = df.drop_duplicates(subset="titulo_pasaporte", keep=False)
 # Borra la nueva columna
 del df["titulo_pasaporte"]
 
+# Reemplaza los espacios mal formateados entre las comillas
+df["autor"] = df["autor"].str.replace("\" ", "\"").str.replace(" \"", "\"")
+
 # Guarda el dataset limpio en un archivo CSV
 df.to_csv("./datosLimpios/temas_limpio.dump", index=None)
 
