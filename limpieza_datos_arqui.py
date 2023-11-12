@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+import csv
 # ----------------------------------------------------- #
 # ----------------- Limpieza de datos ----------------- #
 # ----------------------------------------------------- #
@@ -48,6 +49,33 @@ df['rol'] = df['rol'].replace({'Strings': 'Cuerda'}, regex=True)
 df['nacionalidad_registro'] = df['nacionalidad_registro'].replace({'Swede': 'Swedish'}, regex=True)
 df['nacionalidad'] = df['nacionalidad'].replace({'Swede': 'Swedish'}, regex=True)
 
+# Lista de nombres de columnas que contienen fechas
+columnas_fechas = ['incorporacion', 'cese', 'fecha_nacimiento']
+
+# Convertir las columnas al formato dd/mm/yyyy
+for columna in columnas_fechas:
+    # Convertir las fechas al formato datetime
+    df[columna] = pd.to_datetime(df[columna], errors='coerce', format='%d/%m/%y')
+    
+    # Ajustar las fechas con años mayores que el año actual
+    df.loc[df[columna].dt.year > pd.Timestamp.now().year, columna] -= pd.DateOffset(years=100)
+
+    # Formatear las fechas al formato dd/mm/yyyy
+    df[columna] = df[columna].dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+# Función para verificar el formato y eliminar filas que no cumplan
+expresion_regular = r'^[A-Z]{2}>>\d{10}$'
+def check_pass(fila):
+    if re.match(expresion_regular, str(fila['pasaporte'])):
+        return True
+    else:
+        return False
+    
+# Aplicar la función a cada fila del DataFrame
+df = df[df.apply(check_pass, axis=1)]
+
+df['nacionalidad'] = df['nacionalidad'].str.strip()
+
 # Guarda el dataset limpio en un archivo CSV
 df.to_csv("./datosLimpios/interpretes_limpio.dump", index=None)
 
@@ -87,18 +115,56 @@ df.to_csv("./datosLimpios/temas_limpio.dump", index=None)
 
 # ----------------------CONCIERTOS---------------------- #
 # Lee el dataset de un archivo CSV, indicando que la primera fila es el header
-"""def process(df):
-    df['duracion'] = df['duracion']/60
+def limpiar_archivo(archivo_entrada, archivo_salida):
+    with open(archivo_entrada, "r") as f_entrada:
+        with open(archivo_salida, "w", newline="") as f_salida:
+            reader = csv.reader(f_entrada, delimiter=",")
+            writer = csv.writer(f_salida, delimiter=",")
+            
+            writer.writerow(next(reader)) # write the first row without checking the if statement
+            for row in reader:
+                if not row[5].isdigit():
+                    pais = row[4]
+                    extra = row[5]
 
-chunksize = 10 ** 3
-with pd.read_csv("./datosRaw/conciertos_1.dump", chunksize=chunksize, header=0) as reader:
-    for chunk in reader:
-        process(chunk)
-        
-    reader.to_csv("./datosLimpios/concierto_1_limpio.csv", index=None, mode='a')"""
+                    pais_nuevo = f"{extra} {pais}"
+                    pais_nuevo = pais_nuevo[1:-1]
+                    del row[5]
+                    row[4] = pais_nuevo
 
-"""# Elimina las filas con datos vacíos en las columnas 2 a 9
-df = df.loc[~df.iloc[:, 2:9].isna().any(axis=1)]
+                writer.writerow(row)
 
-# Guarda el dataset limpio en un archivo CSV
-df.to_csv("./datosLimpios/concierto_1_limpio.csv")"""
+def limpiar_fecha(df):
+    columnas_fechas = ['fecha']
+    for columna in columnas_fechas:
+        df[columna] = pd.to_datetime(df[columna], errors='coerce', format='%d/%m/%y')
+        df.loc[df[columna].dt.year > pd.Timestamp.now().year, columna] -= pd.DateOffset(years=100)
+        df[columna] = df[columna].dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+def check_pass(fila):
+    if re.match(expresion_regular, str(fila['pasaporte_autor'])):
+        return True
+    else:
+        return False
+
+expresion_regular = r'^[A-Z]{2}>>\d{10}$'
+
+# Aplicar funciones a los 5 archivos
+for i in range(1, 6):
+    archivo_entrada = f"./datosRaw/conciertos_{i}.dump"
+    archivo_salida = f"./datosLimpios/conciertos_{i}_limpio.dump"
+
+    # Limpieza del archivo
+    limpiar_archivo(archivo_entrada, archivo_salida)
+
+    # Leer el DataFrame limpio
+    df = pd.read_csv(archivo_salida, header=0)
+
+    # Limpieza de la fecha
+    limpiar_fecha(df)
+
+    # Filtrar según la expresión regular
+    df = df[df.apply(check_pass, axis=1)]
+
+    # Guardar el DataFrame limpio en un nuevo archivo CSV
+    df.to_csv(f"./datosLimpios/conciertos_{i}_limpio.dump", index=None)
