@@ -76,6 +76,10 @@ df = df[df.apply(check_pass, axis=1)]
 
 df['nacionalidad'] = df['nacionalidad'].str.strip()
 
+# Contar elementos unicos columna miembro
+print("Numero de grupos: ",df['interprete_o_banda'].unique().size)
+print("Numero de autores en el file de interpretes: ",df['pasaporte'].unique().size)
+
 # Guarda el dataset limpio en un archivo CSV
 df.to_csv("./datosLimpios/interpretes_limpio.dump", index=None)
 
@@ -109,6 +113,9 @@ del df["titulo_pasaporte"]
 
 # Aplicar la función a cada fila del DataFrame
 df = df[df.apply(check_pass, axis=1)]
+
+# Contar elementos unicos en la columna autor
+print("Numero de autores en el file de canciones: ",df['pasaporte_autor'].unique().size)
 
 # Guarda el dataset limpio en un archivo CSV
 df.to_csv("./datosLimpios/temas_limpio.dump", index=None)
